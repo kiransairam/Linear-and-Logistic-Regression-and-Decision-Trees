@@ -1,0 +1,619 @@
+---
+title: "Assignment_3"
+output: html_document
+date: "2023-03-20"
+---
+
+
+1. (2 pt) Load adult.data into a dataframe in R. Note that adult.data does not have column names in the  first line so you need to set header=FALSE when you read the data then manually set the column  names. Inspect the dataset using “str” and “summary” functions. What is the type of each variable in the dataset numeric/continuous or categorical/discrete? For each categorical variable explain whether it is nominal or ordinal.
+```{R}
+
+adult_data =  read.csv("C:/New folder/adult.data.csv", header=FALSE, strip.white=TRUE,na = c("NA", "?"))
+
+```
+
+```{R}
+
+str(adult_data)
+summary(adult_data)
+
+```
+
+
+```{R}
+
+colnames(adult_data) <- c("age", "work_class", "fnlwgt", "education", "education_num", "marital_status", "occupation", "relationship", "race", "sex", "capital_gain", "capital_loss", "hours_per_week", "native_country", "income")
+
+```
+
+```{R}
+
+str(adult_data)
+summary(adult_data)
+
+```
+
+*we can see that the dataset contains 15 variables, out of which 9 are categorical and 6 are numerical. The variable income is the target variable that we want to predic*
+
+*The categorical variables are work_class, education, marital_status, occupation, relationship, race, sex, native_country, and income. Among these, work_class, education, marital_status, occupation, relationship, and race are nominal categorical variables, meaning that there is no inherent order among their categories*
+
+*The numerical variables are age, fnlwgt, education_num, capital_gain, capital_loss, and hours_per_week. The age and hours_per_week variables are continuous numerical variables, as they can take on any value in a given range*
+
+
+
+2. (0.5 pt) There are some missing values in this dataset represented as “ ?” (Note: there is a space before ?) . Make sure that all “ ?” are converted to NAs. You can do so by setting “na.strings” parameters in  “read.csv” to “ ?”.
+
+*We did that na.strings in the first step while reading the data*
+
+3. (1pt) Set the random seed, and split the data to train/test. Use 80% of samples for training and the remaining 20% for testing. You can use “sample” (similar to what we did in slide 37 of week 6 lecture but you need to adjust1000 and 900 to the number of observations in your dataset and the size of the sample) or alternatively, you can use “createDataPartition” method from caret package.
+
+```{R}
+
+set.seed(123)  
+train_index = sample(nrow(adult_data), round(0.8 * nrow(adult_data)), replace = FALSE)
+
+train_data = adult_data[train_index, ]
+test_data = adult_data[-train_index, ]
+
+
+```
+
+4. (2pt) Find which columns in the train and test set have missing values. Replace the missing values in both train and test data with the mean ( if the variable is numeric) or mode (if the variable is categorical). The mode (or mean) we use for imputation should be computed based on the training data only. This is because we don’t want any information from the test data to leak into the model during training. Therefore, instead of imputing based on the mode ( or mean) of entire data, we impute based on the mode (or mean) of the training data.
+
+```{R}
+
+train_missing = sapply(train_data, function(x) sum(is.na(x)))
+test_missing = sapply(test_data, function(x) sum(is.na(x)))
+
+train_missing
+test_missing
+
+
+```
+
+```{R}
+
+# train data 
+for (i in 1:ncol(train_data)) {
+  if (train_missing[i] > 0) {
+    if (is.numeric(train_data[[i]])) {
+      train_mean <- mean(train_data[[i]], na.rm = TRUE)
+      train_data[[i]][is.na(train_data[[i]])] <- train_mean
+    } else {
+      train_mode <- names(which.max(table(train_data[[i]])))
+      train_data[[i]][is.na(train_data[[i]])] <- train_mode
+    }
+  }
+}
+
+```
+
+```{R}
+
+#train data
+
+for (i in 1:ncol(test_data)) {
+  if (test_missing[i] > 0) {
+    if (is.numeric(test_data[[i]])) {
+      test_mean <- mean(train_data[[i]], na.rm = TRUE)
+      test_data[[i]][is.na(test_data[[i]])] <- test_mean
+    } else {
+      test_mode <- names(which.max(table(train_data[[i]])))
+      test_data[[i]][is.na(test_data[[i]])] <- test_mode
+    }
+  }
+}
+
+```
+
+```{R}
+sum(is.na(train_data))
+sum(is.na(test_data))
+
+```
+*Now there is no missing values*
+
+
+5. (3pt) Use appropriate plots and statistic tests to find which variables in the dataset are associated with “income”. Remove the variable(s) that are not associated with income
+
+```{R}
+#install.packages("ggplot2")
+library(ggplot2)
+
+```
+```{R}
+names(train_data)
+
+```
+
+```{R}
+
+ggplot(train_data, aes(x = income, y = age)) + geom_boxplot()
+ggplot(train_data, aes(x = income, y = education_num)) + geom_boxplot()
+ggplot(train_data, aes(x = income, y = capital_gain)) + geom_boxplot()
+ggplot(train_data, aes(x = income, y = hours_per_week)) + geom_boxplot()
+
+
+ggplot(train_data, aes(x = income, fill = work_class)) + geom_density(alpha = 0.5)
+ggplot(train_data, aes(x = income, fill = marital_status)) + geom_density(alpha = 0.5)
+ggplot(train_data, aes(x = income, fill = occupation)) + geom_density(alpha = 0.5)
+ggplot(train_data, aes(x = income, fill = relationship)) + geom_density(alpha = 0.5)
+ggplot(train_data, aes(x = income, fill = race)) + geom_density(alpha = 0.5)
+ggplot(train_data, aes(x = income, fill = sex)) + geom_density(alpha = 0.5)
+ggplot(train_data, aes(x = income, fill = native_country)) + geom_density(alpha = 0.5)
+
+```
+
+```{R}
+
+#install.packages("MASS")
+library(MASS)
+
+```
+
+```{R}
+
+# Chi-squared test for categorical variables
+chisq.test(table(train_data$income, train_data$work_class))
+chisq.test(table(train_data$income, train_data$marital_status))
+chisq.test(table(train_data$income, train_data$occupation))
+chisq.test(table(train_data$income, train_data$relationship))
+chisq.test(table(train_data$income, train_data$race))
+chisq.test(table(train_data$income, train_data$sex))
+chisq.test(table(train_data$income, train_data$native_country))
+
+# T-test for numeric variables
+t.test(train_data$age ~ train_data$income)
+t.test(train_data$education_num ~ train_data$income)
+t.test(train_data$capital_gain ~ train_data$income)
+t.test(train_data$hours_per_week ~ train_data$income)
+
+```
+
+*Based on the above test values, it is suggested to remove the variable "native_country" "occupation" , "race" "work_class" as it has a higher p-value compared to other variables, indicating it is not significantly associated with the income variable. All other variables have p-values less than the significance level of 0.05, suggesting they are significantly associated with the income variable*
+
+
+
+```{R}
+
+train_data = train_data[, !(colnames(train_data) %in% c("work_class", "native_country", "occupation" , "race"))]
+
+test_data = test_data[, !(colnames(test_data) %in% c("work_class", "native_country", "occupation", "race"))]
+
+
+```
+
+
+6. (2pt) Train a logistic regression model on the train data using the glm package and use it to predict “income” for the test data. Note: As explained in the lectures, “predict” method will return predicted probabilities. To convert them to labels, you need to use some threshold ( typically set as 50%) and if 
+the predicted probability is greater than 50% you predict income>50K; otherwise predict income<=50K ( please review the example in lecture 7.2).
+
+
+```{R}
+train_data[sapply(train_data, is.character)] = lapply(train_data[sapply(train_data, is.character)], as.factor)
+
+test_data[sapply(test_data, is.character)] = lapply(test_data[sapply(test_data, is.character)], as.factor)
+```
+
+
+
+```{R}
+
+logistic_model = glm(income ~   age+fnlwgt+education+education_num+marital_status+relationship+sex+capital_gain+capital_loss+hours_per_week , data = train_data, family = "binomial")
+
+summary(logistic_model)
+
+```
+
+```{R}
+
+predictions = predict(logistic_model, test_data, type = "response")
+head(predictions)
+
+
+```
+
+```{R}
+
+predicted.label=factor(ifelse(predictions>0.5, "Up","Down"))
+head(predicted.label)
+
+```
+
+```{R}
+
+
+predicted_labels = ifelse(predictions > 0.5, ">50K", "<=50K")
+head(predicted_labels)
+
+```
+
+
+
+7. (3 pt)Get the cross table between the predicted labels and true labels in the test data and compute the total error as well as the precision and recall for both income<=50K and income>50K classes.
+
+```{R}
+
+test_preds = ifelse(predict(logistic_model , test_data, type = "response") > 0.5, ">50K", "<=50K")
+
+
+table(test_data$income, test_preds)
+
+
+total_error = 1 - sum(diag(table(test_data$income, test_preds))) / sum(table(test_data$income, test_preds))
+
+
+tp_0 = table(test_data$income, test_preds)[1,1]
+tn_0 = table(test_data$income, test_preds)[2,2] + table(test_data$income, test_preds)[2,1]
+fp_0 = table(test_data$income, test_preds)[1,2]
+fn_0 = table(test_data$income, test_preds)[2,1]
+precision_0 = tp_0 / (tp_0 + fp_0)
+recall_0 = tp_0 / (tp_0 + fn_0)
+
+
+tp_1 = table(test_data$income, test_preds)[2,2]
+tn_1 = table(test_data$income, test_preds)[1,1] + table(test_data$income, test_preds)[1,2]
+fp_1 = table(test_data$income, test_preds)[2,1]
+fn_1 = table(test_data$income, test_preds)[1,2]
+precision_1 = tp_1 / (tp_1 + fp_1)
+recall_1 = tp_1 / (tp_1 + fn_1)
+
+
+cat("Total error:", round(total_error, 3), "\n\n")
+cat("Income <=50K:\n")
+cat("Precision:", round(precision_0, 3), "\n")
+cat("Recall:", round(recall_0, 3), "\n\n")
+cat("Income >50K:\n")
+cat("Precision:", round(precision_1, 3), "\n")
+cat("Recall:", round(recall_1, 3), "\n")
+
+
+
+```
+
+
+8. (3pt) The target variable “income” is imbalanced; the number of adults who make <=50 is three times more than the number of adults who make >50K. Most classification models trained on imbalanced data are biased towards predicting the majority class ( income<=50K in this case) and yield a higher classification error on the minority class (income >50K).
+
+```{R}
+
+train_low = train_data[train_data$income == "<=50K",]
+train_high = train_data[train_data$income == ">50K",]
+
+
+
+```
+
+```{R}
+set.seed(123) 
+train_low_downsampled = train_low[sample(nrow(train_low), nrow(train_high)),]
+
+
+```
+
+```{R}
+
+train_balanced = rbind(train_low_downsampled, train_high)
+
+
+```
+
+```{R}
+
+model_balanced = glm(income ~ ., data = train_balanced, family = "binomial")
+
+
+```
+
+```{R}
+
+# Predict on test data
+test_pred_balanced = predict(model_balanced, newdata = test_data, type = "response")
+test_pred_balanced_labels = ifelse(test_pred_balanced > 0.5, ">50K", "<=50K")
+
+# Create cross table and calculate performance metrics for balanced model
+table_balanced = table(test_pred_balanced_labels, test_data$income)
+total_error_balanced = (table_balanced[1,2] + table_balanced[2,1]) / sum(table_balanced)
+precision_low_balanced = table_balanced[1,1] / sum(table_balanced[,1])
+recall_low_balanced = table_balanced[1,1] / sum(table_balanced[1,])
+precision_high_balanced = table_balanced[2,2] / sum(table_balanced[,2])
+recall_high_balanced = table_balanced[2,2] / sum(table_balanced[2,])
+
+
+cat("Total error (balanced model):", round(total_error_balanced, 4), "\n")
+cat("Precision for income <=50K (balanced model):", round(precision_low_balanced, 4), "\n")
+cat("Recall for income <=50K (balanced model):", round(recall_low_balanced, 4), "\n")
+cat("Precision for income >50K (balanced model):", round(precision_high_balanced, 4), "\n")
+cat("Recall for income >50K (balanced model):", round(recall_high_balanced, 4), "\n")
+
+# Compare performance between models
+cat("Performance comparison:\n")
+cat("Total error (original model):", round(total_error, 4), "\n")
+cat("Total error (balanced model):", round(total_error_balanced, 4), "\n")
+
+
+```
+
+9. (3pt) Repeat steps 6-8 above but this time, use a C5.0 decision tree model to predict “income” instead of the logistic regression model (use trials=30 for boosting multiple decision trees (see an example in slide 44, module 6) . Compare the logistic regression model with the boosted C5.0 model
+
+```{R}
+
+#chooseCRANmirror()
+
+# install.packages("C50")
+# 
+# install.packages("C50", repos = "http://cran.r-project.org")
+# 
+# install.packages("C:/New folder/C50_0.1.8.tar.gz", type = "source", repos = NULL)
+
+#install.packages("c50")
+#library(C50)
+
+```
+
+
+
+```{R}
+
+library(C50)
+
+
+model_c50 = C5.0 (income ~ ., data = train_data)
+test_pred_c50 = predict(model_c50, newdata = test_data, type = "class")
+
+
+```
+
+```{R}
+
+
+table_c50 = table(test_data$income, test_pred_c50)
+
+
+total_error_c50 = 1 - sum(diag(table_c50)) / sum(table_c50)
+
+
+precision_low_c50 = table_c50[1, 1] / sum(table_c50[1, ])
+recall_low_c50 = table_c50[1, 1] / sum(table_c50[, 1])
+precision_high_c50 = table_c50[2, 2] / sum(table_c50[, 2])
+recall_high_c50 = table_c50[2, 2] / sum(table_c50[2, ])
+
+
+cat("Total error (C5.0 model):", round(total_error_c50, 4), "\n")
+cat("Precision for income <=50K (C5.0 model):", round(precision_low_c50, 4), "\n")
+cat("Recall for income <=50K (C5.0 model):", round(recall_low_c50, 4), "\n")
+cat("Precision for income >50K (C5.0 model):", round(precision_high_c50, 4), "\n")
+cat("Recall for income >50K (C5.0 model):", round(recall_high_c50, 4), "\n")
+
+
+```
+
+```{R}
+
+cat("Performance comparison:\n")
+cat("Total error (original model):", round(total_error, 4), "\n")
+cat("Total error (balanced model):", round(total_error_balanced, 4), "\n")
+cat("Total error (C5.0 model):", round(total_error_c50, 4), "\n")
+
+
+```
+*C5.0 model has a lower total error than both the original and balanced logistic regression model*
+
+
+Problem2 — Predicting Student Performance
+
+10. (0.5pt) Read the dataset into a dataframe. Ensure that you are using a correct delimiter to read the data correctly and set the “sep” option in read.csv accordingly
+
+```{R}
+student_data =  read.csv("C:/New folder/student-mat.csv",head= TRUE,  sep=";")
+
+```
+
+```{R}
+head(student_data)  
+summary(student_data)  
+str(student_data)  
+
+
+```
+
+*This is a data set with 395 observations and 33 variables. Each observation represents a student*
+
+
+
+11. (2pt) Explore the dataset. More specifically, answer the following questions:
+a. Is there any missing values in the dataset?
+b. Which variables are associated with the target variable G3? To answer this question, use appropriate plots and test statistics based on variable types. You can do this one by one for all variables or write a loop that applies appropriate statistic tests based on variable types. Either approach is fine.
+c. Draw a histogram of the target variable “G3” and interpret it.
+
+```{R}
+
+
+sum(is.na(student_data))
+
+
+```
+
+```{R}
+# Define a vector of variable types
+var_types = sapply(student_data, class)
+
+
+for (col in names(student_data)[-19]) {
+  
+  # if column is numerical, perform correlation test and plot scatter plot
+  if (is.numeric(student_data[[col]])) {
+    cor.test(student_data[[col]], student_data$G3)
+    plot(student_data[[col]], student_data$G3, main = paste(col, "vs G3"), xlab = col, ylab = "G3")
+  }
+  
+  # if column is categorical, perform chi-squared test and plot stacked bar chart
+  else {
+    chisq.test(table(student_data[[col]], student_data$G3))
+    tab = table(student_data[[col]], student_data$G3)
+    barplot(tab, main = paste(col, "vs G3"), xlab = col, ylab = "G3", legend = rownames(tab))
+  }
+  
+}
+
+
+
+```
+
+```{R}
+
+hist(student_data$G3, main = "Distribution of G3", xlab = "G3 Scores", ylab = "Frequency", col = "steelblue", border = "white")
+
+
+abline(v = mean(student_data$G3), col = "red", lwd = 2)
+
+
+legend("topright", legend = paste("Mean =", round(mean(student_data$G3), 2)), col = "red", lwd = 2, cex = 0.8)
+
+
+
+```
+
+
+12. (0.5 pt) Split the data into train and test. Use 80% of samples for training and 20% of samples for testing
+
+```{R}
+
+library(caret)
+set.seed(123)
+
+
+train_in = createDataPartition(student_data$G3, p = 0.8, list = FALSE)
+training_set = student_data[train_in, ]
+testing_set = student_data[-train_in, ]
+
+
+```
+
+13. set the random seed: set.seed(123)
+
+```{R}
+
+set.seed(123)
+
+```
+
+
+14. (2 pt) Use caret package to run 10 fold cross validation using linear regression method on the train data to predict the “G3” variable . Print the resulting model to see the cross validation RMSE. In addition, take a summary of the model and interpret the coefficients. Which coefficients are statistically different from zero? What does this meant?
+
+
+```{R}
+
+library(caret)
+set.seed(123)
+train_control = trainControl(method = "cv", number = 10, verboseIter = FALSE)
+lm_model = train(G3 ~ ., data = training_set, method = "lm", trControl = train_control)
+
+cat("RMSE: ", lm_model$results$RMSE, "\n")
+cat("Coefficients:\n")
+summary(lm_model$finalModel)$coefficients[, c("Estimate", "Std. Error", "t value", "Pr(>|t|)")]
+
+
+```
+
+15. (1pt) Compute RMSE of the model on the test data. You can call “predict” function and pass to it the model (returned by caret train method) and the test data. Then compute RMSE of the predictions returned
+by the “predict” method.
+
+```{R}
+
+lm_predictions = predict(lm_model, newdata = testing_set)
+
+summary(lm_predictions)
+lm_rmse = sqrt(mean((lm_predictions - testing_set$G3)^2))
+cat("RMSE on test data: ", lm_rmse, "\n")
+
+
+```
+
+16. (2 pts) Use caret and leap packages to run a 10 fold cross validation using step wise linear regression method with backward selection on the train data. The train method by default uses maximum of 4 predictors and reports the best models with 1..4 predictors. We need to change this parameter to consider 
+all predictors. So inside your train function, add the following parameter tuneGrid = data.frame(nvmax = 1:n), where n is the number of variables you use to predict “G3”. Which model (with how many variables or nvmax ) has the lowest cross validation RMSE? Take the summary of the final model, which variables are selected in the model with the lowest RMSE?
+
+
+```{R}
+
+#install.packages("leap")
+
+# library(caret)
+# #library(leap)
+# 
+# set.seed(123)
+# formula = as.formula("G3 ~ .")
+# 
+# n = ncol(training_set) - 1
+# tune_grid = data.frame(nvmax = 1:n)
+# 
+# model = train(formula,
+#                data = training_set,
+#                method = "leapSeq",
+#                tuneGrid = tune_grid,
+#                trControl = trainControl(method = "cv", number = 10),
+#                na.action = na.omit,
+#                preProcess = c("center", "scale"))
+# 
+# model$results
+
+library(caret)
+library(leaps)
+
+ctrl = trainControl(method = "cv", number = 10, savePredictions = TRUE)
+lm_fit = train(G3 ~., data = training_set, method = "leapBackward", tuneGrid = data.frame(nvmax = ncol(training_set) - 1), trControl = ctrl)
+
+summary(lm_fit$finalModel)
+lm_predictions = predict(lm_fit, newdata = testing_set)
+lm_rmse = sqrt(mean((lm_predictions - testing_set$G3)^2))
+cat("RMSE of stepwise model on test data: ", lm_rmse, "\n")
+
+
+
+```
+
+17. (0.5 pt) Compute the RMSE of the stepwise model on the test data.
+
+18. (1 pt) use “rpart” function to create a regression tree model from the train data. Get the predictions on test 
+data and compute the RMSE.
+
+```{R}
+#install.packages("rpart.plot")
+library(rpart.plot)
+
+
+```
+
+```{R}
+
+library(rpart)
+
+rpart_fit = rpart(G3 ~ ., data = training_set)
+rpart_fit
+
+set.seed(123)
+library(rpart.plot)
+rpart.plot(rpart_fit, digits= 3)
+
+rpart_predictions = predict(rpart_fit, newdata = testing_set)
+rpart_rmse = sqrt(mean((rpart_predictions - testing_set$G3)^2))
+cat("RMSE of regression tree on test data: ", rpart_rmse, "\n")
+
+
+```
+19. (1pt) Compare the RMSE on the test data for linear regression, stepwise regression, and the regression tree.Which model does better at predicting students’ final grade in math?
+
+```{R}
+
+results = data.frame(model = c("Linear Regression", "Stepwise Regression", "Regression Tree"), RMSE = c(lm_rmse, lm_fit$results$RMSE[which.min(lm_fit$results$RMSE)],rpart_rmse))
+
+
+print(results)
+
+
+
+```
+
+
+*Based on the values, it seems like the linear regression and regression tree models have very similar performance, with the linear regression model having a slightly lower RMSE. The stepwise regression model has a higher RMSE than both of the other models*
+
+
+
